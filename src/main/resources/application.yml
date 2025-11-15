@@ -1,0 +1,81 @@
+spring:
+  application:
+    name: ${APP_NAME:rag-chat-storage}
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/rag-chat-storage}
+  cache:
+    type: ${CACHE_TYPE:caffeine}
+    caffeine:
+      spec: ${CACHE_SPEC:maximumSize=1000,expireAfterWrite=10m,expireAfterAccess=5m,recordStats}
+
+# Security Configuration
+security:
+  api-key: ${SECURITY_API_KEY:changeme}
+  api-key-header: ${SECURITY_API_KEY_HEADER:X-API-KEY}
+
+# Application Configuration
+app:
+  # CORS Configuration
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PATCH,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+    max-age: ${CORS_MAX_AGE:3600}
+
+  # Pagination Configuration
+  pagination:
+    default-page-size: ${PAGINATION_DEFAULT_PAGE_SIZE:20}
+    max-page-size: ${PAGINATION_MAX_PAGE_SIZE:100}
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${ACTUATOR_ENDPOINTS:health,info,metrics,caches}
+  endpoint:
+    health:
+      probes:
+        enabled: ${ACTUATOR_HEALTH_PROBES:true}
+  metrics:
+    cache:
+      instrument-cache: ${ACTUATOR_CACHE_METRICS:true}
+
+# Logging Configuration
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.example.ragchatstorage: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.web: ${LOG_LEVEL_WEB:DEBUG}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:DEBUG}
+  pattern:
+    console: ${LOG_PATTERN_CONSOLE:%d{yyyy-MM-dd HH:mm:ss} - %msg%n}
+    file: ${LOG_PATTERN_FILE:%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n}
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8082}
+  tomcat:
+    accesslog:
+      enabled: ${ACCESS_LOG_ENABLED:true}
+      pattern: ${ACCESS_LOG_PATTERN:%h %l %u %t \"%r\" %s %b %D}
+      directory: ${ACCESS_LOG_DIRECTORY:logs}
+      prefix: ${ACCESS_LOG_PREFIX:access_log}
+      suffix: ${ACCESS_LOG_SUFFIX:.log}
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    path: ${SWAGGER_API_DOCS_PATH:/v3/api-docs}
+  swagger-ui:
+    path: ${SWAGGER_UI_PATH:/swagger-ui.html}
+    enabled: ${SWAGGER_ENABLED:true}
+    # Configure to use relative URLs (will use current server port automatically)
+    use-root-path: false
+  info:
+    title: ${SWAGGER_TITLE:RAG Chat Storage Microservice API}
+    version: ${SWAGGER_VERSION:1.0}
+    description: ${SWAGGER_DESCRIPTION:Production-ready backend microservice to store chat sessions, messages, and RAG context}
+
+

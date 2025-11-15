@@ -1,0 +1,116 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Java
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+backend.log
+frontend.log
+
+# Test
+/test-results/
+/coverage/
+
+# Docker
+docker-compose.override.yml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
+# Backend Build Outputs
+build/
+!gradle/wrapper/gradle-wrapper.jar
+target/
+*.jar
+*.war
+*.ear
+!**/src/main/**
+!**/src/test/**
+
+# Process Management
+.backend.pid
+.frontend.pid
+*.pid
+
+# Cache
+.gradle/
+.m2/
+.npm/
+.cache/
+
+# Generated Documentation
+docs/generated/
+api-docs/
+
+# Coverage Reports
+coverage/
+.nyc_output/
+*.lcov
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+mongodb-data/
+mongo-data/
+
+# Misc Generated
+.DS_Store
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~

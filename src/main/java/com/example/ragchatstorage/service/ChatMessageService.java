@@ -1,0 +1,74 @@
+package com.example.ragchatstorage.service;
+
+import com.example.ragchatstorage.dto.ContextItemDto;
+import com.example.ragchatstorage.dto.CreateMessageRequest;
+import com.example.ragchatstorage.exception.NotFoundException;
+import com.example.ragchatstorage.model.ChatMessage;
+import com.example.ragchatstorage.model.ChatSession;
+import com.example.ragchatstorage.model.ContextItem;
+import com.example.ragchatstorage.repository.ChatMessageRepository;
+import com.example.ragchatstorage.repository.ChatSessionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ChatMessageService {
+
+    private final ChatSessionRepository sessionRepository;
+    private final ChatMessageRepository messageRepository;
+
+    public ChatMessage addMessage(String sessionId, CreateMessageRequest request) {
+        ChatSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new NotFoundException("Session not found: " + sessionId));
+
+        List<ContextItem> contextItems = null;
+        if (request.context() != null) {
+            contextItems = request.context().stream()
+                    .map(this::toEntity)
+                    .collect(Collectors.toList());
+        }
+
+        ChatMessage message = ChatMessage.builder()
+                .sessionId(session.getId())
+                .sender(request.sender())
+                .content(request.content())
+                .context(contextItems)
+                .createdAt(Instant.now())
+                .build();
+
+        return messageRepository.save(message);
+    }
+
+    public Page<ChatMessage> getMessages(String sessionId, int page, int size) {
+        if (!sessionRepository.existsById(sessionId)) {
+            throw new NotFoundException("Session not found: " + sessionId);
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId, pageable);
+    }
+
+    public void deleteMessagesForSession(String sessionId) {
+        messageRepository.deleteBySessionId(sessionId);
+    }
+
+    private ContextItem toEntity(ContextItemDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        return ContextItem.builder()
+                .sourceId(dto.sourceId())
+                .snippet(dto.snippet())
+                .metadata(dto.metadata() == null ? Collections.emptyMap() : dto.metadata())
+                .build();
+    }
+}
+
