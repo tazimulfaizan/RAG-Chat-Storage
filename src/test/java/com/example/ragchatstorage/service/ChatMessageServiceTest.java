@@ -2,6 +2,7 @@ package com.example.ragchatstorage.service;
 
 import com.example.ragchatstorage.dto.CreateMessageRequest;
 import com.example.ragchatstorage.exception.NotFoundException;
+import com.example.ragchatstorage.mapper.ChatMessageMapper;
 import com.example.ragchatstorage.model.ChatMessage;
 import com.example.ragchatstorage.model.ChatSession;
 import com.example.ragchatstorage.model.SenderType;
@@ -36,6 +37,9 @@ class ChatMessageServiceTest {
     @Mock
     private ChatMessageRepository messageRepository;
 
+    @Mock
+    private ChatMessageMapper messageMapper;
+
     @InjectMocks
     private ChatMessageService chatMessageService;
 
@@ -66,11 +70,11 @@ class ChatMessageServiceTest {
     void addMessage_shouldCreateAndReturnMessage() {
         // Given
         String sessionId = "session-1";
-        CreateMessageRequest request = new CreateMessageRequest();
-        request.setSender(SenderType.USER);
-        request.setContent("Test message");
+        // CreateMessageRequest is a record: CreateMessageRequest(SenderType sender, String content, List<ContextItemDto> context)
+        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", null);
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(testSession));
+        when(messageMapper.toEntity(any(CreateMessageRequest.class))).thenReturn(testMessage);
         when(messageRepository.save(any(ChatMessage.class))).thenReturn(testMessage);
 
         // When
@@ -79,6 +83,7 @@ class ChatMessageServiceTest {
         // Then
         assertNotNull(result);
         verify(sessionRepository, times(1)).findById(sessionId);
+        verify(messageMapper, times(1)).toEntity(any(CreateMessageRequest.class));
         verify(messageRepository, times(1)).save(any(ChatMessage.class));
     }
 
@@ -86,9 +91,7 @@ class ChatMessageServiceTest {
     void addMessage_whenSessionNotFound_shouldThrowNotFoundException() {
         // Given
         String sessionId = "non-existent";
-        CreateMessageRequest request = new CreateMessageRequest();
-        request.setSender(SenderType.USER);
-        request.setContent("Test message");
+        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", null);
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 

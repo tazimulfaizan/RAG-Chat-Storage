@@ -1,8 +1,8 @@
 package com.example.ragchatstorage.service;
 
-import com.example.ragchatstorage.dto.ContextItemDto;
 import com.example.ragchatstorage.dto.CreateMessageRequest;
 import com.example.ragchatstorage.exception.NotFoundException;
+import com.example.ragchatstorage.mapper.ChatMessageMapper;
 import com.example.ragchatstorage.model.ChatMessage;
 import com.example.ragchatstorage.model.ChatSession;
 import com.example.ragchatstorage.model.ContextItem;
@@ -15,7 +15,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,25 +24,24 @@ public class ChatMessageService {
 
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
+    private final ChatMessageMapper messageMapper;  // ✅ Added MapStruct mapper
 
     public ChatMessage addMessage(String sessionId, CreateMessageRequest request) {
         ChatSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NotFoundException("Session not found: " + sessionId));
 
-        List<ContextItem> contextItems = null;
-        if (request.context() != null) {
-            contextItems = request.context().stream()
-                    .map(this::toEntity)
-                    .collect(Collectors.toList());
-        }
+        // ✅ Using MapStruct mapper for entity conversion
+        ChatMessage message = messageMapper.toEntity(request);
+        message.setSessionId(session.getId());
+        message.setCreatedAt(Instant.now());
 
-        ChatMessage message = ChatMessage.builder()
-                .sessionId(session.getId())
-                .sender(request.sender())
-                .content(request.content())
-                .context(contextItems)
-                .createdAt(Instant.now())
-                .build();
+        // Convert context items using mapper
+        if (request.context() != null) {
+            List<ContextItem> contextItems = request.context().stream()
+                    .map(messageMapper::toEntity)
+                    .collect(Collectors.toList());
+            message.setContext(contextItems);
+        }
 
         return messageRepository.save(message);
     }
@@ -58,17 +56,6 @@ public class ChatMessageService {
 
     public void deleteMessagesForSession(String sessionId) {
         messageRepository.deleteBySessionId(sessionId);
-    }
-
-    private ContextItem toEntity(ContextItemDto dto) {
-        if (dto == null) {
-            return null;
-        }
-        return ContextItem.builder()
-                .sourceId(dto.sourceId())
-                .snippet(dto.snippet())
-                .metadata(dto.metadata() == null ? Collections.emptyMap() : dto.metadata())
-                .build();
     }
 }
 

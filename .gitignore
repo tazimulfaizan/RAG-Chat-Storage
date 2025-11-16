@@ -29,11 +29,6 @@ out/
 .settings/
 bin/
 
-# Environment
-.env
-.env.local
-.env.*.local
-
 # OS
 .DS_Store
 Thumbs.db
@@ -114,3 +109,5 @@ mongo-data/
 *.swp
 *.swo
 *~
+
+Readme/

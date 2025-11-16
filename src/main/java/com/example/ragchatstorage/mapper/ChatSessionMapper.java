@@ -7,21 +7,34 @@ import org.mapstruct.Mapper;
 
 import java.util.List;
 
+/**
+ * MapStruct mapper for ChatSession entity and DTOs.
+ * Automatically generates mapping implementations at compile-time.
+ *
+ * Benefits:
+ * - Type-safe compile-time mapping
+ * - No reflection overhead
+ * - Clean and maintainable code
+ *
+ * MapStruct automatically maps matching field names between source and target.
+ */
 @Mapper(componentModel = "spring")
 public interface ChatSessionMapper {
 
+    /**
+     * Maps CreateSessionRequest DTO to ChatSession entity.
+     * MapStruct automatically maps: userId, title
+     */
     ChatSession toEntity(CreateSessionRequest request);
 
-    default SessionResponse toDto(ChatSession session) {
-        return SessionResponse.from(session);
-    }
+    /**
+     * Maps ChatSession entity to SessionResponse DTO.
+     * MapStruct automatically maps all matching fields.
+     */
+    SessionResponse toDto(ChatSession session);
 
-    default List<SessionResponse> toDtoList(List<ChatSession> sessions) {
-        if (sessions == null) {
-            return null;
-        }
-        return sessions.stream()
-                .map(SessionResponse::from)
-                .collect(java.util.stream.Collectors.toList());
-    }
+    /**
+     * Maps list of ChatSession entities to list of SessionResponse DTOs.
+     */
+    List<SessionResponse> toDtoList(List<ChatSession> sessions);
 }

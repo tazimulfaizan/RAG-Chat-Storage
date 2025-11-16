@@ -13,6 +13,9 @@ spring:
 security:
   api-key: ${SECURITY_API_KEY:changeme}
   api-key-header: ${SECURITY_API_KEY_HEADER:X-API-KEY}
+  # Multiple API Keys Support (comma-separated)
+  # Format: key1,key2,key3 or use environment variable
+  api-keys: ${SECURITY_API_KEYS:changeme,frontend-key,backend-key,mobile-key}
 
 # Application Configuration
 app:

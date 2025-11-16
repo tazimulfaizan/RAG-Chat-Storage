@@ -4,6 +4,7 @@ import com.example.ragchatstorage.dto.CreateSessionRequest;
 import com.example.ragchatstorage.dto.FavoriteSessionRequest;
 import com.example.ragchatstorage.dto.RenameSessionRequest;
 import com.example.ragchatstorage.dto.SessionResponse;
+import com.example.ragchatstorage.mapper.ChatSessionMapper;
 import com.example.ragchatstorage.service.ChatMessageService;
 import com.example.ragchatstorage.service.ChatSessionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/sessions")
@@ -28,12 +28,14 @@ public class ChatSessionController {
 
     private final ChatSessionService sessionService;
     private final ChatMessageService messageService;
+    private final ChatSessionMapper sessionMapper;  // ✅ Added MapStruct mapper
 
     @PostMapping
     @Operation(summary = "Create a new chat session", description = "Creates a new chat session for a user")
     public ResponseEntity<SessionResponse> createSession(@Valid @RequestBody CreateSessionRequest request) {
         var created = sessionService.createSession(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(created));
+        // ✅ Using MapStruct mapper for DTO conversion
+        return ResponseEntity.status(HttpStatus.CREATED).body(sessionMapper.toDto(created));
     }
 
     @GetMapping
@@ -42,7 +44,8 @@ public class ChatSessionController {
             @Parameter(description = "User ID", required = true) @RequestParam String userId,
             @Parameter(description = "Filter by favorite status") @RequestParam(required = false) Boolean favorite) {
         var sessions = sessionService.getSessionsForUser(userId, favorite);
-        var response = sessions.stream().map(SessionResponse::from).collect(Collectors.toList());
+        // ✅ Using MapStruct mapper for list conversion
+        var response = sessionMapper.toDtoList(sessions);
         return ResponseEntity.ok(response);
     }
 
@@ -52,7 +55,8 @@ public class ChatSessionController {
             @Parameter(description = "Session ID", required = true) @PathVariable String id,
             @Valid @RequestBody RenameSessionRequest request) {
         var updated = sessionService.renameSession(id, request.title());
-        return ResponseEntity.ok(SessionResponse.from(updated));
+        // ✅ Using MapStruct mapper
+        return ResponseEntity.ok(sessionMapper.toDto(updated));
     }
 
     @PatchMapping("/{id}/favorite")
@@ -61,7 +65,8 @@ public class ChatSessionController {
             @Parameter(description = "Session ID", required = true) @PathVariable String id,
             @Valid @RequestBody FavoriteSessionRequest request) {
         var updated = sessionService.markFavorite(id, request.favorite());
-        return ResponseEntity.ok(SessionResponse.from(updated));
+        // ✅ Using MapStruct mapper
+        return ResponseEntity.ok(sessionMapper.toDto(updated));
     }
 
     @DeleteMapping("/{id}")

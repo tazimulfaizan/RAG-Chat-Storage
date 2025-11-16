@@ -3,6 +3,7 @@ package com.example.ragchatstorage.controller;
 import com.example.ragchatstorage.dto.CreateMessageRequest;
 import com.example.ragchatstorage.dto.MessageResponse;
 import com.example.ragchatstorage.dto.PagedResponse;
+import com.example.ragchatstorage.mapper.ChatMessageMapper;
 import com.example.ragchatstorage.model.ChatMessage;
 import com.example.ragchatstorage.service.ChatMessageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,8 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.stream.Collectors;
-
 @RestController
 @RequestMapping("/api/v1/sessions/{sessionId}/messages")
 @RequiredArgsConstructor
@@ -27,6 +26,7 @@ import java.util.stream.Collectors;
 public class ChatMessageController {
 
     private final ChatMessageService messageService;
+    private final ChatMessageMapper messageMapper;  // ✅ Added MapStruct mapper
 
     @Value("${app.pagination.default-page-size:20}")
     private int defaultPageSize;
@@ -40,7 +40,8 @@ public class ChatMessageController {
             @Parameter(description = "Session ID", required = true) @PathVariable String sessionId,
             @Valid @RequestBody CreateMessageRequest request) {
         ChatMessage created = messageService.addMessage(sessionId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(MessageResponse.from(created));
+        // ✅ Using MapStruct mapper for DTO conversion
+        return ResponseEntity.status(HttpStatus.CREATED).body(messageMapper.toDto(created));
     }
 
     @GetMapping
@@ -54,9 +55,8 @@ public class ChatMessageController {
 
         Page<ChatMessage> result = messageService.getMessages(sessionId, page, pageSize);
 
-        var content = result.getContent().stream()
-                .map(MessageResponse::from)
-                .toList();
+        // ✅ Using MapStruct mapper for list conversion
+        var content = messageMapper.toDtoList(result.getContent());
 
         PagedResponse<MessageResponse> response = new PagedResponse<>(
             content,

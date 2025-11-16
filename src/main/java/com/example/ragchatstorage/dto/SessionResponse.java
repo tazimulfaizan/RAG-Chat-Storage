@@ -1,9 +1,11 @@
 package com.example.ragchatstorage.dto;
 
-import com.example.ragchatstorage.model.ChatSession;
-
 import java.time.Instant;
 
+/**
+ * DTO for ChatSession response.
+ * Mapped by ChatSessionMapper using MapStruct.
+ */
 public record SessionResponse(
     String id,
     String userId,
@@ -12,14 +14,4 @@ public record SessionResponse(
     Instant createdAt,
     Instant updatedAt
 ) {
-    public static SessionResponse from(ChatSession session) {
-        return new SessionResponse(
-            session.getId(),
-            session.getUserId(),
-            session.getTitle(),
-            session.isFavorite(),
-            session.getCreatedAt(),
-            session.getUpdatedAt()
-        );
-    }
 }

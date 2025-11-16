@@ -2,6 +2,7 @@ package com.example.ragchatstorage.service;
 
 import com.example.ragchatstorage.dto.CreateSessionRequest;
 import com.example.ragchatstorage.exception.NotFoundException;
+import com.example.ragchatstorage.mapper.ChatSessionMapper;
 import com.example.ragchatstorage.model.ChatSession;
 import com.example.ragchatstorage.repository.ChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,9 @@ class ChatSessionServiceTest {
     @Mock
     private ChatSessionRepository sessionRepository;
 
+    @Mock
+    private ChatSessionMapper sessionMapper;
+
     @InjectMocks
     private ChatSessionService chatSessionService;
 
@@ -44,11 +48,10 @@ class ChatSessionServiceTest {
 
     @Test
     void createSession_shouldCreateAndReturnSession() {
-        // Given
-        CreateSessionRequest request = new CreateSessionRequest();
-        request.setUserId("user-123");
-        request.setTitle("New Session");
+        // Given - CreateSessionRequest is a record, use constructor
+        CreateSessionRequest request = new CreateSessionRequest("user-123", "New Session");
 
+        when(sessionMapper.toEntity(any(CreateSessionRequest.class))).thenReturn(testSession);
         when(sessionRepository.save(any(ChatSession.class))).thenReturn(testSession);
 
         // When
@@ -56,6 +59,7 @@ class ChatSessionServiceTest {
 
         // Then
         assertNotNull(result);
+        verify(sessionMapper, times(1)).toEntity(any(CreateSessionRequest.class));
         verify(sessionRepository, times(1)).save(any(ChatSession.class));
     }
 

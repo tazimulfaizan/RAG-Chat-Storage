@@ -2,6 +2,7 @@ package com.example.ragchatstorage.service;
 
 import com.example.ragchatstorage.dto.CreateSessionRequest;
 import com.example.ragchatstorage.exception.NotFoundException;
+import com.example.ragchatstorage.mapper.ChatSessionMapper;
 import com.example.ragchatstorage.model.ChatSession;
 import com.example.ragchatstorage.repository.ChatSessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,21 +21,21 @@ import java.util.List;
 public class ChatSessionService {
 
     private final ChatSessionRepository sessionRepository;
+    private final ChatSessionMapper sessionMapper;  // ✅ Added MapStruct mapper
 
     @CacheEvict(value = "userSessions", key = "#request.userId")
     public ChatSession createSession(CreateSessionRequest request) {
-        Instant now = Instant.now();
+        // ✅ Using MapStruct mapper instead of manual builder
+        ChatSession session = sessionMapper.toEntity(request);
+        session.setFavorite(false);
 
-        ChatSession session = ChatSession.builder()
-                .userId(request.userId())
-                .title(request.title())
-                .favorite(false)
-                .createdAt(now)
-                .updatedAt(now)
-                .build();
+        Instant now = Instant.now();
+        session.setCreatedAt(now);
+        session.setUpdatedAt(now);
 
         ChatSession saved = sessionRepository.save(session);
-        log.debug("Created session {} and evicted userSessions cache for user {}", saved.getId(), request.userId());
+        log.debug("Created session {} using MapStruct mapper and evicted userSessions cache for user {}",
+                saved.getId(), request.userId());
         return saved;
     }
 
