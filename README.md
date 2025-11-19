@@ -50,9 +50,6 @@ This microservice provides a complete solution for managing chat histories, incl
 
 All environment variables are documented in `.env.example`. Copy it and configure:
 
-```bash
-cp .env.example .env
-```
 
 ### Required Variables
 
@@ -67,13 +64,37 @@ cp .env.example .env
 
 ## Getting Started
 
+### 🚀 Quick Start (One Command)
+
+**The fastest way to start everything:**
+
+```bash
+./start-all.sh
+```
+
+This single command will:
+- ✅ Start MongoDB (Docker)
+- ✅ Start Mongo Express (Docker)
+- ✅ Build and start Backend API
+- ✅ Start Frontend UI
+
+**To stop everything:**
+```bash
+./stop-all.sh
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for details.
+
+---
+
 ### Prerequisites
 
 - Java 21 or higher
-- Docker & Docker Compose (for containerized setup)
-- MongoDB (for local setup without Docker)
+- Docker & Docker Compose
+- Node.js 18+ and npm (for frontend)
+- MongoDB (automatically started by Docker)
 
-### Option 1: Running with Docker (Recommended)
+### Option 1: Complete Stack with Docker (Recommended)
 
 This is the easiest way to get started. Docker Compose will start MongoDB, mongo-express (database UI), and the application.
 
@@ -476,3 +497,6 @@ For issues and questions:
 - Check the Swagger documentation at `/swagger-ui/index.html`
 - Review the logs for error details
 - Ensure all environment variables are set correctly
+
+## Message User Identification
+Each user message now carries a `userId` that must match the owning session's `userId`. The backend enforces this to prevent cross-user injection into another user's session.

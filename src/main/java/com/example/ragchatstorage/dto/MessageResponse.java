@@ -12,6 +12,7 @@ public record MessageResponse(
     String sessionId,
     String sender,
     String content,
+    String userId, // Added userId
     List<Map<String, Object>> context,
     Instant createdAt
 ) {
@@ -28,6 +29,7 @@ public record MessageResponse(
             message.getSessionId(),
             message.getSender() != null ? message.getSender().name() : null,
             message.getContent(),
+            message.getUserId(), // include userId
             ctx,
             message.getCreatedAt()
         );

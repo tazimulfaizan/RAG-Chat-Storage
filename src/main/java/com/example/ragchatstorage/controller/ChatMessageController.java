@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class ChatMessageController {
 
     private final ChatMessageService messageService;
-    private final ChatMessageMapper messageMapper;  // ✅ Added MapStruct mapper
+    private final ChatMessageMapper messageMapper;
 
     @Value("${app.pagination.default-page-size:20}")
     private int defaultPageSize;
@@ -40,7 +40,6 @@ public class ChatMessageController {
             @Parameter(description = "Session ID", required = true) @PathVariable String sessionId,
             @Valid @RequestBody CreateMessageRequest request) {
         ChatMessage created = messageService.addMessage(sessionId, request);
-        // ✅ Using MapStruct mapper for DTO conversion
         return ResponseEntity.status(HttpStatus.CREATED).body(messageMapper.toDto(created));
     }
 
@@ -55,7 +54,6 @@ public class ChatMessageController {
 
         Page<ChatMessage> result = messageService.getMessages(sessionId, page, pageSize);
 
-        // ✅ Using MapStruct mapper for list conversion
         var content = messageMapper.toDtoList(result.getContent());
 
         PagedResponse<MessageResponse> response = new PagedResponse<>(

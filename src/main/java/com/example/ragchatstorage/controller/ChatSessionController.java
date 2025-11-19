@@ -28,13 +28,13 @@ public class ChatSessionController {
 
     private final ChatSessionService sessionService;
     private final ChatMessageService messageService;
-    private final ChatSessionMapper sessionMapper;  // ✅ Added MapStruct mapper
+    private final ChatSessionMapper sessionMapper;
 
     @PostMapping
     @Operation(summary = "Create a new chat session", description = "Creates a new chat session for a user")
     public ResponseEntity<SessionResponse> createSession(@Valid @RequestBody CreateSessionRequest request) {
         var created = sessionService.createSession(request);
-        // ✅ Using MapStruct mapper for DTO conversion
+
         return ResponseEntity.status(HttpStatus.CREATED).body(sessionMapper.toDto(created));
     }
 
@@ -44,7 +44,7 @@ public class ChatSessionController {
             @Parameter(description = "User ID", required = true) @RequestParam String userId,
             @Parameter(description = "Filter by favorite status") @RequestParam(required = false) Boolean favorite) {
         var sessions = sessionService.getSessionsForUser(userId, favorite);
-        // ✅ Using MapStruct mapper for list conversion
+
         var response = sessionMapper.toDtoList(sessions);
         return ResponseEntity.ok(response);
     }
@@ -55,7 +55,7 @@ public class ChatSessionController {
             @Parameter(description = "Session ID", required = true) @PathVariable String id,
             @Valid @RequestBody RenameSessionRequest request) {
         var updated = sessionService.renameSession(id, request.title());
-        // ✅ Using MapStruct mapper
+
         return ResponseEntity.ok(sessionMapper.toDto(updated));
     }
 
@@ -65,7 +65,7 @@ public class ChatSessionController {
             @Parameter(description = "Session ID", required = true) @PathVariable String id,
             @Valid @RequestBody FavoriteSessionRequest request) {
         var updated = sessionService.markFavorite(id, request.favorite());
-        // ✅ Using MapStruct mapper
+
         return ResponseEntity.ok(sessionMapper.toDto(updated));
     }
 

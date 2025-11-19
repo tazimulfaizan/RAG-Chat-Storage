@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import SessionList from './components/SessionList';
 import ChatInterface from './components/ChatInterface';
+import LoginScreen from './components/LoginScreen';
+import UserHeader from './components/UserHeader';
 import { apiService } from './services/apiService';
 
 function App() {
@@ -8,13 +10,45 @@ function App() {
   const [currentSession, setCurrentSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [userId, setUserId] = useState(null);
 
-  const userId = import.meta.env.VITE_DEFAULT_USER_ID || 'demo-user';
-
-  // Load sessions on mount
+  // Load userId from localStorage on mount
   useEffect(() => {
-    loadSessions();
+    const savedUserId = localStorage.getItem('rag_chat_user_id');
+    if (savedUserId) {
+      setUserId(savedUserId);
+    }
   }, []);
+
+  // Load sessions when userId changes
+  useEffect(() => {
+    if (userId) {
+      loadSessions();
+    }
+  }, [userId]);
+
+  const handleLogin = (newUserId) => {
+    localStorage.setItem('rag_chat_user_id', newUserId);
+    setUserId(newUserId);
+    setSessions([]);
+    setCurrentSession(null);
+    setError(null);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm(`Switch user? Current sessions for "${userId}" will remain saved.`)) {
+      localStorage.removeItem('rag_chat_user_id');
+      setUserId(null);
+      setSessions([]);
+      setCurrentSession(null);
+      setError(null);
+    }
+  };
+
+  // Show login screen if no userId
+  if (!userId) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   const loadSessions = async () => {
     try {
@@ -89,13 +123,18 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-800">RAG Chat Storage</h1>
-          <p className="text-sm text-gray-500">with AI Support</p>
-        </div>
+    <div className="flex h-screen bg-gray-100 flex-col">
+      {/* User Header */}
+      <UserHeader userId={userId} onLogout={handleLogout} />
+
+      {/* Main Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <h1 className="text-xl font-bold text-gray-800">RAG Chat Storage</h1>
+            <p className="text-sm text-gray-500">with AI Support</p>
+          </div>
 
         <div className="p-4">
           <button
@@ -138,6 +177,7 @@ function App() {
         )}
       </div>
     </div>
+  </div>
   );
 }
 

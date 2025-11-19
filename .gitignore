@@ -111,3 +111,30 @@ mongo-data/
 *~
 
 ReadMe/
+# Env file backups (migration from .env to charts)
+ReadMe/.env.backup-20251118-204011
+ReadMe/.env.example.backup
+# Cleanup and temporary files
+.cleanup-backup*/
+*.log
+*.pid
+*.bak
+*.backup
+*.tmp
+cleanup-project.sh
+# Build artifacts
+build/
+target/
+node_modules/
+.gradle/
+# IDE
+.idea/
+*.iml
+.vscode/
+# OS files
+.DS_Store
+Thumbs.db
+# Environment files (use docker-compose.yml for config)
+.env
+frontend/.env
+*.env.local

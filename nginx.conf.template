@@ -19,7 +19,7 @@ http {
 
     # Upstream backend (Spring Boot app)
     upstream backend {
-        server app:8080;
+        server app:8082;
     }
 
     server {

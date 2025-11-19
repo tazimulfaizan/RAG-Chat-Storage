@@ -47,13 +47,13 @@ export const apiService = {
     return response.data;
   },
 
-  async addMessage(sessionId, sender, content, context = null) {
+  async addMessage(sessionId, sender, content, userId, context = null) {
     const response = await api.post(`/api/v1/sessions/${sessionId}/messages`, {
       sender,
       content,
+      userId,
       context,
     });
     return response.data;
   },
 };
-

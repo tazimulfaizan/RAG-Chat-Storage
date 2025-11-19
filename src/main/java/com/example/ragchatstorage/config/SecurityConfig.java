@@ -99,10 +99,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * CORS configuration source for Spring Security
-     * This is used by the security filter chain
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

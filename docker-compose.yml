@@ -1,19 +1,13 @@
 version: '3.8'
 
 services:
-  # Nginx - Reverse proxy with rate limiting
   nginx:
     image: nginx:alpine
     container_name: rag-chat-nginx
     ports:
       - "80:80"      # Public port (rate limited)
-      - "8082:8082"  # Direct access to app (for testing)
     volumes:
-      - ./nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
-    environment:
-      # Rate limiting configuration
-      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
-      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - app
     networks:
@@ -72,7 +66,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      VITE_API_URL: http://localhost:${SERVER_PORT:-8082}
+      VITE_API_URL: http://localhost
       VITE_API_KEY: ${SECURITY_API_KEY:-changeme}
       VITE_OPENAI_API_KEY: ${OPENAI_API_KEY}
       VITE_AI_PROVIDER: openai

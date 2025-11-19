@@ -21,11 +21,11 @@ import java.util.List;
 public class ChatSessionService {
 
     private final ChatSessionRepository sessionRepository;
-    private final ChatSessionMapper sessionMapper;  // ✅ Added MapStruct mapper
+    private final ChatSessionMapper sessionMapper;
 
     @CacheEvict(value = "userSessions", key = "#request.userId")
     public ChatSession createSession(CreateSessionRequest request) {
-        // ✅ Using MapStruct mapper instead of manual builder
+
         ChatSession session = sessionMapper.toEntity(request);
         session.setFavorite(false);
 

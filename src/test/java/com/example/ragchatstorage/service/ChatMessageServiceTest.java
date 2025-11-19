@@ -70,8 +70,7 @@ class ChatMessageServiceTest {
     void addMessage_shouldCreateAndReturnMessage() {
         // Given
         String sessionId = "session-1";
-        // CreateMessageRequest is a record: CreateMessageRequest(SenderType sender, String content, List<ContextItemDto> context)
-        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", null);
+        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", "user-123", null);
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(testSession));
         when(messageMapper.toEntity(any(CreateMessageRequest.class))).thenReturn(testMessage);
@@ -91,9 +90,24 @@ class ChatMessageServiceTest {
     void addMessage_whenSessionNotFound_shouldThrowNotFoundException() {
         // Given
         String sessionId = "non-existent";
-        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", null);
+        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", "user-123", null);
 
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(NotFoundException.class, () -> chatMessageService.addMessage(sessionId, request));
+        verify(sessionRepository, times(1)).findById(sessionId);
+        verify(messageRepository, never()).save(any(ChatMessage.class));
+    }
+
+    @Test
+    void addMessage_whenUserIdMismatch_shouldThrowNotFoundException() {
+        // Given
+        String sessionId = "session-1";
+        CreateMessageRequest request = new CreateMessageRequest(SenderType.USER, "Test message", "other-user", null);
+
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(testSession));
+        when(messageMapper.toEntity(any(CreateMessageRequest.class))).thenReturn(testMessage);
 
         // When & Then
         assertThrows(NotFoundException.class, () -> chatMessageService.addMessage(sessionId, request));

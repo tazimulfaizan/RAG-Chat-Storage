@@ -9,5 +9,6 @@ import java.util.List;
 public record CreateMessageRequest(
     @NotNull SenderType sender,
     @NotBlank String content,
+    @NotBlank String userId, // Added: userId supplied by client
     List<ContextItemDto> context
 ) {}

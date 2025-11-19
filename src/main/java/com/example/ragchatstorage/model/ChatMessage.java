@@ -28,5 +28,7 @@ public class ChatMessage {
 
     private List<ContextItem> context;
 
+    private String userId;
+
     private Instant createdAt;
 }

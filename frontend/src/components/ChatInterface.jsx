@@ -53,7 +53,8 @@ function ChatInterface({ session, userId }) {
       const savedUserMsg = await apiService.addMessage(
         session.id,
         'USER',
-        userMessage
+        userMessage,
+        userId
       );
       setMessages(prev => [...prev, savedUserMsg]);
 
@@ -74,6 +75,7 @@ function ChatInterface({ session, userId }) {
         session.id,
         'ASSISTANT',
         aiResponse.content,
+        userId,
         aiResponse.context
       );
       setMessages(prev => [...prev, savedAiMsg]);
@@ -166,4 +168,3 @@ function ChatInterface({ session, userId }) {
 }
 
 export default ChatInterface;
-
