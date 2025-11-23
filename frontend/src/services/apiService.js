@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082';
+// Use port 80 (nginx with rate limiting) instead of direct backend port 8082
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost';
 const API_KEY = import.meta.env.VITE_API_KEY || 'changeme';
 
 const api = axios.create({

@@ -1,13 +1,12 @@
 {
   "name": "rag-chat-frontend",
   "version": "1.0.0",
-  "description": "Frontend for RAG Chat Storage Microservice with AI Integration",
+  "description": "Frontend for RAG Chat Storage Microservice with Groq AI",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "axios": "^1.6.0",
-    "openai": "^4.20.0",
     "react-markdown": "^9.0.0",
     "lucide-react": "^0.294.0",
     "date-fns": "^2.30.0"

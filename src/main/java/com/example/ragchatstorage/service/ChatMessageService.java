@@ -1,6 +1,9 @@
 package com.example.ragchatstorage.service;
 
 import com.example.ragchatstorage.dto.CreateMessageRequest;
+import com.example.ragchatstorage.exception.BadRequestException;
+import com.example.ragchatstorage.exception.BusinessException;
+import com.example.ragchatstorage.exception.DatabaseException;
 import com.example.ragchatstorage.exception.NotFoundException;
 import com.example.ragchatstorage.mapper.ChatMessageMapper;
 import com.example.ragchatstorage.model.ChatMessage;
@@ -10,6 +13,7 @@ import com.example.ragchatstorage.model.SenderType;
 import com.example.ragchatstorage.repository.ChatMessageRepository;
 import com.example.ragchatstorage.repository.ChatSessionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
@@ -37,7 +42,9 @@ public class ChatMessageService {
         // Validate and set userId based on sender type
         if (request.sender() == SenderType.USER) {
             if (!session.getUserId().equals(request.userId())) {
-                throw new NotFoundException("User ID does not match session owner");
+                log.error("User ID mismatch. Expected={}, Got={}",
+                        session.getUserId(), request.userId());
+                throw new BusinessException("User ID does not match session owner");
             }
             message.setUserId(request.userId());
         } else {
@@ -56,15 +63,71 @@ public class ChatMessageService {
     }
 
     public Page<ChatMessage> getMessages(String sessionId, int page, int size) {
-        if (!sessionRepository.existsById(sessionId)) {
-            throw new NotFoundException("Session not found: " + sessionId);
+        log.debug("[SERVICE] Fetching messages. SessionId={}, Page={}, Size={}",
+                sessionId, page, size);
+
+        // Validate inputs
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            log.error("Invalid sessionId: null or empty");
+            throw new com.example.ragchatstorage.exception.BadRequestException(
+                    "Session ID cannot be null or empty");
         }
-        Pageable pageable = PageRequest.of(page, size);
-        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId, pageable);
+
+        if (page < 0) {
+            log.error("Invalid page number: {}", page);
+            throw new com.example.ragchatstorage.exception.BadRequestException(
+                    "Page number cannot be negative");
+        }
+
+        if (size <= 0) {
+            log.error("Invalid page size: {}", size);
+            throw new com.example.ragchatstorage.exception.BadRequestException(
+                    "Page size must be positive");
+        }
+
+        try {
+            if (!sessionRepository.existsById(sessionId)) {
+                log.error("Session not found: {}", sessionId);
+                throw new NotFoundException("Session not found: " + sessionId);
+            }
+
+            Pageable pageable = PageRequest.of(page, size);
+            Page<ChatMessage> result = messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId, pageable);
+
+            log.info("[SERVICE] Messages fetched. SessionId={}, Count={}, TotalElements={}",
+                    sessionId, result.getNumberOfElements(), result.getTotalElements());
+
+            return result;
+
+        } catch (NotFoundException | com.example.ragchatstorage.exception.BadRequestException ex) {
+            throw ex; // Re-throw custom exceptions
+        } catch (org.springframework.dao.DataAccessException ex) {
+            log.error("Database error fetching messages. SessionId={}, Error={}",
+                    sessionId, ex.getMessage(), ex);
+            throw new com.example.ragchatstorage.exception.DatabaseException(
+                    "Failed to fetch messages due to database error", ex);
+        }
     }
 
     public void deleteMessagesForSession(String sessionId) {
-        messageRepository.deleteBySessionId(sessionId);
+        log.debug("[SERVICE] Deleting messages for session: {}", sessionId);
+
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            log.error("Invalid sessionId: null or empty");
+            throw new com.example.ragchatstorage.exception.BadRequestException(
+                    "Session ID cannot be null or empty");
+        }
+
+        try {
+            messageRepository.deleteBySessionId(sessionId);
+            log.info("[SERVICE] Messages deleted for session: {}", sessionId);
+
+        } catch (org.springframework.dao.DataAccessException ex) {
+            log.error("Database error deleting messages. SessionId={}, Error={}",
+                    sessionId, ex.getMessage(), ex);
+            throw new com.example.ragchatstorage.exception.DatabaseException(
+                    "Failed to delete messages due to database error", ex);
+        }
     }
 }
 

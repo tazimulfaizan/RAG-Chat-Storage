@@ -1,6 +1,7 @@
 package com.example.ragchatstorage.service;
 
 import com.example.ragchatstorage.dto.CreateSessionRequest;
+import com.example.ragchatstorage.exception.DatabaseException;
 import com.example.ragchatstorage.exception.NotFoundException;
 import com.example.ragchatstorage.mapper.ChatSessionMapper;
 import com.example.ragchatstorage.model.ChatSession;
@@ -79,9 +80,22 @@ public class ChatSessionService {
 
     @CacheEvict(value = {"sessions", "userSessions"}, allEntries = true)
     public void deleteSession(String id) {
-        ChatSession session = getById(id);
-        sessionRepository.delete(session);
-        log.debug("Deleted session {} and cleared all caches", id);
+        log.debug("[SERVICE] Deleting session: {}", id);
+
+        try {
+            ChatSession session = getById(id);
+            sessionRepository.delete(session);
+
+            log.info("[SERVICE] Session deleted. SessionId={}, Caches cleared", id);
+
+        } catch (NotFoundException ex) {
+            throw ex; // Re-throw NotFoundException
+        } catch (org.springframework.dao.DataAccessException ex) {
+            log.error("Database error deleting session. SessionId={}, Error={}",
+                    id, ex.getMessage(), ex);
+            throw new DatabaseException(
+                    "Failed to delete session due to database error", ex);
+        }
     }
 }
 

@@ -1,84 +1,138 @@
 version: '3.8'
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: rag-chat-mysql
+    ports:
+      - "3307:3306"  # Changed to 3307 to avoid conflict with local MySQL
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD:-password}
+      MYSQL_DATABASE: ${DATABASE_NAME:-rag_chat_storage}
+      MYSQL_USER: ${DATABASE_USERNAME:-ragchat}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD:-password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DATABASE_PASSWORD:-password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   nginx:
     image: nginx:alpine
     container_name: rag-chat-nginx
     ports:
       - "80:80"      # Public port (rate limited)
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      # Rate limiting from values.yaml
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${RATE_LIMIT_REQUESTS_PER_MINUTE:-60}
+      RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
+      RATE_LIMIT_ZONE_SIZE: ${RATE_LIMIT_ZONE_SIZE:-10m}
     depends_on:
       - app
     networks:
       - rag-network
     restart: unless-stopped
 
-  mongo:
-    image: mongo:7
-    container_name: rag-chat-mongo
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: rag-chat-storage
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - rag-network
-
-  mongo-express:
-    image: mongo-express:latest
-    container_name: rag-chat-mongo-express
-    ports:
-      - "8081:8081"
-    environment:
-      ME_CONFIG_MONGODB_SERVER: host.docker.internal
-      ME_CONFIG_MONGODB_PORT: 27017
-      ME_CONFIG_MONGODB_ENABLE_ADMIN: "true"
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: admin
-    networks:
-      - rag-network
-
   app:
     build: .
     container_name: rag-chat-storage-app
     expose:
       - "${SERVER_PORT:-8082}"
-    ports:
-      - "${SERVER_PORT:-8082}:${SERVER_PORT:-8082}"
+    # Port 8082 not exposed externally - all traffic must go through nginx port 80
     environment:
+      # Database Configuration
+      DATABASE_URL: ${DATABASE_URL:-jdbc:mysql://mysql:3306/rag_chat_storage?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-ragchat}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-password}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+      FLYWAY_ENABLED: ${FLYWAY_ENABLED:-false}
+
+      # Application Configuration
       SERVER_PORT: ${SERVER_PORT:-8082}
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/rag-chat-storage}
       SECURITY_API_KEY: ${SECURITY_API_KEY:-changeme}
+      SECURITY_API_KEY_HEADER: ${SECURITY_API_KEY_HEADER:-X-API-KEY}
+      SECURITY_API_KEYS: ${SECURITY_API_KEYS:-changeme,frontend-key,backend-key,mobile-key}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PATCH,DELETE,OPTIONS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-*}
+      CORS_MAX_AGE: ${CORS_MAX_AGE:-3600}
       PAGINATION_DEFAULT_PAGE_SIZE: ${PAGINATION_DEFAULT_PAGE_SIZE:-20}
       PAGINATION_MAX_PAGE_SIZE: ${PAGINATION_MAX_PAGE_SIZE:-100}
+      CACHE_TYPE: ${CACHE_TYPE:-caffeine}
+      CACHE_SPEC: ${CACHE_SPEC:-maximumSize=1000,expireAfterWrite=10m,expireAfterAccess=5m,recordStats}
+      ACTUATOR_ENDPOINTS: ${ACTUATOR_ENDPOINTS:-health,info,metrics,caches}
+      ACTUATOR_HEALTH_PROBES: ${ACTUATOR_HEALTH_PROBES:-true}
+      ACTUATOR_CACHE_METRICS: ${ACTUATOR_CACHE_METRICS:-true}
+      LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}
+      LOG_LEVEL_APP: ${LOG_LEVEL_APP:-DEBUG}
+      LOG_LEVEL_WEB: ${LOG_LEVEL_WEB:-DEBUG}
+      LOG_LEVEL_SECURITY: ${LOG_LEVEL_SECURITY:-DEBUG}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      SWAGGER_API_DOCS_PATH: ${SWAGGER_API_DOCS_PATH:-/v3/api-docs}
+      SWAGGER_UI_PATH: ${SWAGGER_UI_PATH:-/swagger-ui.html}
     depends_on:
-      - mongo
+      mysql:
+        condition: service_healthy
     networks:
       - rag-network
+    restart: unless-stopped
 
-  # Frontend - React Application with AI Chat
+  # Frontend - React Application with Groq AI Chat
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost}
+        VITE_API_KEY: ${SECURITY_API_KEY:-changeme}
+        VITE_GROQ_API_KEY: ${GROQ_API_KEY}
+        VITE_GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+        VITE_DEFAULT_USER_ID: ${DEFAULT_USER_ID:-demo-user}
     container_name: rag-chat-frontend
     ports:
       - "3000:3000"
     environment:
-      VITE_API_URL: http://localhost
+      # Frontend configuration from values.yaml
+      VITE_API_URL: ${VITE_API_URL:-http://localhost}
       VITE_API_KEY: ${SECURITY_API_KEY:-changeme}
-      VITE_OPENAI_API_KEY: ${OPENAI_API_KEY}
-      VITE_AI_PROVIDER: openai
-      VITE_DEFAULT_USER_ID: demo-user
+
+      # Groq AI Configuration (FREE - Get from https://console.groq.com/)
+      VITE_GROQ_API_KEY: ${GROQ_API_KEY}
+      VITE_GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+
+
+      VITE_DEFAULT_USER_ID: ${DEFAULT_USER_ID:-demo-user}
     depends_on:
       - app
     networks:
       - rag-network
+    restart: unless-stopped
 
+  # Adminer - Database Management Tool (Web UI)
+  adminer:
+    image: adminer:latest
+    container_name: rag-chat-adminer
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DESIGN: pepa-linha-dark
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - rag-network
+    restart: unless-stopped
 
 volumes:
-  mongo-data:
+  mysql_data:
     driver: local
 
 networks:

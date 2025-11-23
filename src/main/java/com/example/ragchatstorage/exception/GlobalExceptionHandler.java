@@ -16,17 +16,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.Instant;
 import java.util.stream.Collectors;
 
-/**
- * Global exception handler with standard HTTP error codes.
- *
- * Standard Error Codes:
- * - 400 BAD_REQUEST: Invalid input, validation failures
- * - 401 UNAUTHORIZED: Missing or invalid authentication
- * - 403 FORBIDDEN: Authenticated but not authorized
- * - 404 NOT_FOUND: Resource doesn't exist
- * - 409 CONFLICT: Duplicate resource
- * - 500 INTERNAL_SERVER_ERROR: Unexpected errors
- */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
@@ -97,6 +86,119 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
         log.warn("Illegal argument: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    /**
+     * Handle duplicate resource (409 CONFLICT)
+     */
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResource(DuplicateResourceException ex, HttpServletRequest request) {
+        log.warn("Duplicate resource: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    /**
+     * Handle business logic violations (422 UNPROCESSABLE_ENTITY)
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex, HttpServletRequest request) {
+        log.warn("Business exception: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request);
+    }
+
+    /**
+     * Handle rate limit exceeded (429 TOO_MANY_REQUESTS)
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitExceeded(RateLimitExceededException ex, HttpServletRequest request) {
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request);
+    }
+
+    /**
+     * Handle database exceptions (500)
+     */
+    @ExceptionHandler(DatabaseException.class)
+    public ResponseEntity<ErrorResponse> handleDatabaseException(DatabaseException ex, HttpServletRequest request) {
+        log.error("Database error: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Database operation failed. Please try again later.", request);
+    }
+
+    /**
+     * Handle Spring Data exceptions (500)
+     */
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDataAccessException(
+            org.springframework.dao.DataAccessException ex, HttpServletRequest request) {
+        log.error("Data access error: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Database operation failed. Please try again later.", request);
+    }
+
+    /**
+     * Handle constraint violation exceptions (400)
+     */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST,
+                "Data integrity violation. Possible duplicate or invalid data.", request);
+    }
+
+    /**
+     * Handle null pointer exceptions (500)
+     */
+    @ExceptionHandler(NullPointerException.class)
+    public ResponseEntity<ErrorResponse> handleNullPointer(NullPointerException ex, HttpServletRequest request) {
+        log.error("Null pointer exception: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred. Please contact support.", request);
+    }
+
+    /**
+     * Handle missing request parameters (400)
+     */
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(
+            org.springframework.web.bind.MissingServletRequestParameterException ex, HttpServletRequest request) {
+        String message = String.format("Required parameter '%s' is missing", ex.getParameterName());
+        log.warn("Missing parameter: {}", message);
+        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
+    }
+
+    /**
+     * Handle HTTP message not readable (400)
+     */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex, HttpServletRequest request) {
+        log.warn("HTTP message not readable: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST,
+                "Invalid request body. Please check your JSON format.", request);
+    }
+
+    /**
+     * Handle HTTP method not supported (405)
+     */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        String message = String.format("Method '%s' not supported for this endpoint", ex.getMethod());
+        log.warn("Method not supported: {}", message);
+        return buildResponse(HttpStatus.METHOD_NOT_ALLOWED, message, request);
+    }
+
+    /**
+     * Handle media type not supported (415)
+     */
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(
+            org.springframework.web.HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        log.warn("Media type not supported: {}", ex.getMessage());
+        return buildResponse(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Media type not supported. Please use application/json.", request);
     }
 
     /**

@@ -46,6 +46,11 @@ frontend.log
 # Docker
 docker-compose.override.yml
 
+# Environment variables (use chart/values.yaml instead)
+.env
+.env.*
+!.env.example
+
 # Temporary files
 *.tmp
 *.bak
@@ -84,7 +89,7 @@ target/
 .m2/
 .npm/
 .cache/
-
+.env
 # Generated Documentation
 docs/generated/
 api-docs/

@@ -1,0 +1,86 @@
+app:
+  name: rag-chat-storage
+  version: 1.0.0
+
+server:
+  port: 8082
+
+mongodb:
+  uri: mongodb://localhost:27017/rag-chat-storage
+
+security:
+  apiKey: changeme
+  apiKeyHeader: X-API-KEY
+  # Multiple API keys for different clients
+  apiKeys:
+    - changeme
+    - frontend-key
+    - backend-key
+    - mobile-key
+
+
+rateLimit:
+  # Requests allowed per minute per IP
+  requestsPerMinute: 60
+  burst: 10
+
+  # Memory zone size for storing rate limit state
+  # 1m can track ~16,000 IP addresses
+  # 10m can track ~160,000 IP addresses
+  zoneSize: 10m
+
+# -----------------------------------------------------------------------------
+# CORS Configuration
+# -----------------------------------------------------------------------------
+cors:
+  allowedOrigins: http://localhost:3000
+  allowedMethods: GET,POST,PATCH,DELETE,OPTIONS
+  allowedHeaders: "*"
+  maxAge: 3600
+
+# -----------------------------------------------------------------------------
+# Pagination Configuration
+# -----------------------------------------------------------------------------
+pagination:
+  defaultPageSize: 20
+  maxPageSize: 100
+
+cache:
+  type: caffeine
+  spec: maximumSize=1000,expireAfterWrite=10m,expireAfterAccess=5m,recordStats
+
+actuator:
+  endpoints: health,info,metrics,caches
+  healthProbes: true
+  cacheMetrics: true
+
+logging:
+  level:
+    root: INFO
+    app: DEBUG
+    web: DEBUG
+    security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  accessLog:
+    enabled: true
+    pattern: "%h %l %u %t \"%r\" %s %b %D"
+    directory: logs
+    prefix: access_log
+    suffix: .log
+
+swagger:
+  enabled: true
+  apiDocsPath: /v3/api-docs
+  uiPath: /swagger-ui.html
+  title: RAG Chat Storage Microservice API
+  version: "1.0"
+  description: Production-ready backend microservice to store chat sessions, messages, and RAG context
+
+frontend:
+  groq:
+    apiKey: ""
+    model: llama-3.3-70b-versatile
+
+  defaultUserId: demo-user

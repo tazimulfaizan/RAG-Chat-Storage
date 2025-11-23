@@ -70,8 +70,8 @@ docker restart rag-chat-nginx
 
 ## 📝 Notes
 
-- Frontend uses **port 80** (rate limited) ✅
-- Direct backend access on **port 8082** (no rate limiting)
+- **All traffic** goes through **port 80** (rate limited via Nginx) ✅
+- Port 8082 is **not exposed externally** - only accessible within Docker network
 - All data persists in Docker volumes
 - Use `docker-compose down -v` to delete all data
 

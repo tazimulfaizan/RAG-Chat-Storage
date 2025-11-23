@@ -1,9 +1,23 @@
 spring:
   application:
     name: ${APP_NAME:rag-chat-storage}
-  data:
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/rag-chat-storage}
+  datasource:
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/rag_chat_storage?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        use_sql_comments: true
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
   cache:
     type: ${CACHE_TYPE:caffeine}
     caffeine:
@@ -27,16 +41,28 @@ app:
     default-page-size: ${PAGINATION_DEFAULT_PAGE_SIZE:20}
     max-page-size: ${PAGINATION_MAX_PAGE_SIZE:100}
 
+  # Rate Limiting Configuration (for nginx)
+  rate-limit:
+    requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:60}
+    burst: ${RATE_LIMIT_BURST:10}
+    zone-size: ${RATE_LIMIT_ZONE_SIZE:10m}
+
 # Actuator Configuration
 management:
   endpoints:
     web:
       exposure:
         include: ${ACTUATOR_ENDPOINTS:health,info,metrics,caches}
+      base-path: /actuator
   endpoint:
     health:
+      show-details: always
+      show-components: always
       probes:
         enabled: ${ACTUATOR_HEALTH_PROBES:true}
+  health:
+    defaults:
+      enabled: true
   metrics:
     cache:
       instrument-cache: ${ACTUATOR_CACHE_METRICS:true}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, AlertCircle } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { apiService } from '../services/apiService';
-import { mockAiService } from '../services/mockAiService';  // Using mock AI service (no OpenAI credits needed)
+import { groqService } from '../services/groqService';
 
 function ChatInterface({ session, userId }) {
   const [messages, setMessages] = useState([]);
@@ -58,16 +58,16 @@ function ChatInterface({ session, userId }) {
       );
       setMessages(prev => [...prev, savedUserMsg]);
 
-      // 2. Get AI response (using mock AI - no OpenAI API needed)
+      // 2. Get AI response from Groq
       setAiLoading(true);
       const conversationHistory = [
         ...messages.filter(m => m.sender !== 'SYSTEM'),
         { sender: 'USER', content: userMessage }
       ];
 
-      const aiResponse = await mockAiService.generateResponse(
+      const aiResponse = await groqService.generateResponse(
         conversationHistory,
-        true // Include RAG context simulation
+        true // Include RAG context
       );
 
       // 3. Save AI response with context

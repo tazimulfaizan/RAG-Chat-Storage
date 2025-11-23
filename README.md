@@ -46,21 +46,37 @@ This microservice provides a complete solution for managing chat histories, incl
 ✅ Docker support with MongoDB and mongo-express  
 ✅ Unit tests for business logic  
 
-## Environment Variables
+## Configuration
 
-All environment variables are documented in `.env.example`. Copy it and configure:
+All configuration is centralized in **`chart/values.yaml`**. No `.env` files are used.
 
+### Quick Configuration
 
-### Required Variables
+```bash
+# 1. Edit configuration
+nano chart/values.yaml
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `SPRING_DATA_MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/rag-chat-storage` | `mongodb://mongo:27017/rag-chat-storage` |
-| `SECURITY_API_KEY` | API key for authentication | `changeme` | `your-secure-api-key-here` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` | `http://localhost:3000,http://localhost:4200` |
-| `RATE_LIMIT_REQUESTS_PER_MINUTE` | Requests per minute per key/IP | `60` | `100` |
-| `PAGINATION_DEFAULT_PAGE_SIZE` | Default page size | `20` | `20` |
-| `PAGINATION_MAX_PAGE_SIZE` | Maximum page size | `100` | `100` |
+# 2. Generate nginx.conf (for rate limiting changes)
+./generate-nginx-conf.sh
+
+# 3. Apply changes
+docker-compose down
+source chart/load-config.sh
+docker-compose up -d
+```
+
+See [CONFIGURATION_SETUP.md](CONFIGURATION_SETUP.md) and [chart/README.md](chart/README.md) for complete guide.
+
+### Key Configuration Options
+
+| Setting | Location in values.yaml | Default | Description |
+|---------|------------------------|---------|-------------|
+| **Rate Limit** | `rateLimit.requestsPerMinute` | `60` | Requests per minute per IP |
+| **Burst** | `rateLimit.burst` | `10` | Extra requests for spikes |
+| **API Key** | `security.apiKey` | `changeme` | Authentication key |
+| **MongoDB** | `mongodb.uri` | `mongodb://localhost:27017/...` | Database connection |
+| **CORS** | `cors.allowedOrigins` | `http://localhost:3000` | Allowed origins |
+| **Pagination** | `pagination.defaultPageSize` | `20` | Default page size |
 
 ## Getting Started
 
@@ -73,17 +89,20 @@ All environment variables are documented in `.env.example`. Copy it and configur
 ```
 
 This single command will:
-- ✅ Start MongoDB (Docker)
-- ✅ Start Mongo Express (Docker)
-- ✅ Build and start Backend API
+- ✅ Start Backend API (connects to local MongoDB)
 - ✅ Start Frontend UI
+- ✅ Configure nginx reverse proxy
+
+**Prerequisites:**
+- Local MongoDB must be running: `brew services start mongodb-community`
+- Verify: `./test-mongodb-connection.sh`
 
 **To stop everything:**
 ```bash
 ./stop-all.sh
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for details.
+See [QUICKSTART.md](QUICKSTART.md) and [LOCAL_MONGODB_SETUP.md](LOCAL_MONGODB_SETUP.md) for details.
 
 ---
 
@@ -92,32 +111,53 @@ See [QUICKSTART.md](QUICKSTART.md) for details.
 - Java 21 or higher
 - Docker & Docker Compose
 - Node.js 18+ and npm (for frontend)
-- MongoDB (automatically started by Docker)
+- **MongoDB installed and running locally** on port 27017
+  - Install: `brew install mongodb-community`
+  - Start: `brew services start mongodb-community`
+  - See [LOCAL_MONGODB_SETUP.md](LOCAL_MONGODB_SETUP.md) for details
 
 ### Option 1: Complete Stack with Docker (Recommended)
 
-This is the easiest way to get started. Docker Compose will start MongoDB, mongo-express (database UI), and the application.
+**Note:** This setup uses your **local MongoDB instance** (not Docker MongoDB).
 
-1. **Build the application JAR**:
+1. **Ensure MongoDB is running locally**:
+   ```bash
+   # Check if MongoDB is running
+   lsof -i :27017
+   
+   # If not running, start it
+   brew services start mongodb-community
+   
+   # Test connection
+   ./test-mongodb-connection.sh
+   ```
+
+2. **Build the application JAR**:
    ```bash
    ./gradlew clean bootJar
    ```
 
-2. **Start all services**:
+3. **Start all services**:
    ```bash
    docker-compose up --build
    ```
 
-3. **Access the services**:
-   - Application API: http://localhost:8080
-   - Swagger UI: http://localhost:8080/swagger-ui/index.html
-   - Mongo Express: http://localhost:8081
-   - Health Check: http://localhost:8080/health
+4. **Access the services**:
+   - Application API: http://localhost (via nginx)
+   - Backend Direct: http://localhost:8082 (from host only)
+   - Frontend UI: http://localhost:3000
+   - Swagger UI: http://localhost/swagger-ui/index.html
+   - Health Check: http://localhost/actuator/health
+   - **MongoDB**: Local instance at `localhost:27017`
+   - **Mongo Compass**: Connect to `mongodb://localhost:27017/rag-chat-storage`
 
-4. **Stop the services**:
+5. **Stop the services**:
    ```bash
    docker-compose down
    ```
+   
+   **Note:** This stops Docker containers only. Your local MongoDB keeps running.
+   To stop MongoDB: `brew services stop mongodb-community`
 
 ### Option 2: Running Locally (without Docker)
 
@@ -351,6 +391,48 @@ curl -X GET "http://localhost:8080/api/v1/sessions/$SESSION_ID/messages?page=0&s
 curl -X DELETE http://localhost:8080/api/v1/sessions/$SESSION_ID \
   -H "X-API-KEY: $API_KEY"
 ```
+
+### Test Rate Limiting
+
+Test if nginx rate limiting and burst are working correctly:
+
+**Quick Test (30 seconds):**
+```bash
+./test-rate-limit-quick.sh
+```
+
+**Expected Output:**
+```
+✓ Success (200):      12
+✗ Rate Limited (429): 68
+
+✅ Rate limiting is WORKING!
+```
+
+**Detailed Test:**
+```bash
+./test-rate-limit.sh
+```
+
+**Manual Test:**
+```bash
+# Send 80 rapid requests and count responses
+for i in {1..80}; do 
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -H "X-API-KEY: changeme" \
+    "http://localhost/api/v1/sessions?userId=test"
+done | sort | uniq -c
+
+# Expected: ~12 with 200, ~68 with 429
+```
+
+**What the numbers mean:**
+- Rate Limit: 60 requests/minute (1 req/sec)
+- Burst: 10 requests
+- Rapid fire test: Allows ~12 requests, blocks remaining ~68
+- This proves rate limiting is working correctly!
+
+See [Rate Limiting Testing Guide](ReadMe/RATE_LIMITING_TESTING_GUIDE.md) for detailed information.
 
 ## Project Structure
 

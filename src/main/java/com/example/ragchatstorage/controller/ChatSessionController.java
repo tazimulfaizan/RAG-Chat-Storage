@@ -13,12 +13,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/sessions")
 @RequiredArgsConstructor
@@ -73,8 +74,26 @@ public class ChatSessionController {
     @Operation(summary = "Delete a session", description = "Deletes a chat session and all its messages")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSession(@Parameter(description = "Session ID", required = true) @PathVariable String id) {
-        // delete messages first, then session
-        messageService.deleteMessagesForSession(id);
-        sessionService.deleteSession(id);
+        long startTime = System.currentTimeMillis();
+
+        log.info("[START] Deleting session. SessionId={}", id);
+
+        try {
+            log.debug("Deleting messages for session...");
+            messageService.deleteMessagesForSession(id);
+
+            log.debug("Deleting session...");
+            sessionService.deleteSession(id);
+
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("[SUCCESS] Session deleted. SessionId={}, Duration={}ms",
+                    id, duration);
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("[ERROR] Failed to delete session. SessionId={}, Duration={}ms, Error={}",
+                    id, duration, e.getMessage(), e);
+            throw e;
+        }
     }
 }
