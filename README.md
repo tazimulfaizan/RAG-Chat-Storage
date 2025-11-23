@@ -1,584 +1,259 @@
 # RAG Chat Storage Microservice
 
-Production-ready backend microservice to store chat sessions, messages, and RAG context for a Retrieval-Augmented Generation (RAG) based chatbot system.
+Production-grade backend + frontend stack for storing chat sessions, messages, and Retrieval-Augmented Generation (RAG) context items. This powers a Groq LLM backed chatbot with persistent session history.
 
 ## Overview
+This service manages:
+- **Chat Sessions**: create, list, rename, favorite, delete
+- **Chat Messages**: persist sender, content, timestamp, optional contextual RAG snippets
+- **Context Items**: per-message retrieval snippets (sourceId, snippet, metadata)
+- **User Isolation**: messages tagged with a `userId` enforced to match owning session
+- **Rate Limiting**: Nginx reverse proxy front-line throttling (IP based)
+- **Security**: API key authentication (header `X-API-KEY`)
+- **Observability**: structured async logging + health endpoints
+- **Docs**: Interactive Swagger/OpenAPI UI
 
-This microservice provides a complete solution for managing chat histories, including:
-- **Chat Sessions**: Create and manage conversation sessions
-- **Chat Messages**: Store messages with sender information and RAG context
-- **Session Management**: Rename, favorite, and delete sessions
-- **Message History**: Retrieve paginated message history
-- **Security**: API key authentication and rate limiting
-- **Documentation**: Interactive Swagger/OpenAPI documentation
+## Current Tech Stack
+| Layer | Technology |
+|-------|------------|
+| Language | Java 21 |
+| Framework | Spring Boot 3.2.x (Web, Validation, Data JPA) |
+| Database | MySQL 8 (JPA + Flyway migrations) |
+| Frontend | React + Vite + TailwindCSS |
+| AI Model | Groq (Llama 3.x) via Groq API |
+| Reverse Proxy | Nginx (rate limiting & routing) |
+| DB Admin UI | Adminer (http://localhost:8081) |
+| Build Tool | Gradle |
+| API Docs | springdoc-openapi / Swagger UI |
+| Containerization | Docker & docker-compose |
+| Logging | SLF4J + structured controller/service logs |
+| Migrations | Flyway (`src/main/resources/db/migration`) |
+| Caching | Caffeine (in-memory) |
 
-## Tech Stack
+## Key Features
+### Core
+- ✅ Persist chat sessions & messages (relational schema)
+- ✅ Store optional RAG context per message
+- ✅ Rename & favorite sessions
+- ✅ Delete sessions (cascade delete messages + context)
+- ✅ Paginated message history (page/size with max limits)
 
-- **Language**: Java 21
-- **Framework**: Spring Boot 3.3.4
-- **Database**: MongoDB
-- **Build Tool**: Gradle
-- **Documentation**: SpringDoc OpenAPI 3 (Swagger UI)
-- **Authentication**: API Key-based
-- **Rate Limiting**: Bucket4j (Token Bucket Algorithm)
-- **Containerization**: Docker & docker-compose
-- **Logging**: SLF4J with request/response logging
+### Platform / Infrastructure
+- ✅ API Key auth (header `X-API-KEY` configurable)
+- ✅ Nginx rate limiting (requests per minute + burst)
+- ✅ Adminer MySQL UI for browsing tables & data
+- ✅ Flyway migrations (versioned schema control)
+- ✅ Centralized configuration (`chart/values.yaml` + env overrides)
+- ✅ Structured logging with timing & success/error markers
+- ✅ Global exception handling (uniform JSON error envelope)
+- ✅ Pagination & CORS configuration
+- ✅ Health endpoints (Actuator + lightweight `/health`)
 
-## Features
+### AI Integration (Groq)
+- ✅ Real-time responses using Groq API (no mock after cleanup)
+- ✅ Frontend uses `VITE_GROQ_API_KEY` (must be provided) & model selection
+- ✅ Graceful error when API key missing
 
-### Core Functionalities
-✅ Start and maintain chat sessions for users  
-✅ Save messages within a session with sender, content, and optional RAG context  
-✅ Rename chat sessions  
-✅ Mark/unmark sessions as favorite  
-✅ Delete sessions and associated messages  
-✅ Retrieve paginated message history  
-
-### Technical Features
-✅ API Key authentication (environment-configured)  
-✅ Rate limiting to prevent API abuse  
-✅ Centralized logging with request tracking  
-✅ Global error handling  
-✅ CORS configuration  
-✅ Pagination support  
-✅ Health check endpoints  
-✅ Swagger/OpenAPI documentation  
-✅ Docker support with MongoDB and mongo-express  
-✅ Unit tests for business logic  
+## Database Schema (MySQL)
+Initial schema applied via Flyway migration `V1__initial_schema.sql`:
+- `chat_sessions` (id, user_id, title, favorite, created_at, updated_at)
+- `chat_messages` (id, session_id, sender, content, user_id, created_at)
+- `context_items` (id, message_id, source_id, snippet, metadata JSON)
 
 ## Configuration
+Primary defaults live in `chart/values.yaml`. Secrets (API keys) should NOT be committed—use environment variables locally (e.g. `export GROQ_API_KEY=...`).
 
-All configuration is centralized in **`chart/values.yaml`**. No `.env` files are used.
+### Critical Variables
+| Variable | Purpose | Source / Override |
+|----------|---------|-------------------|
+| `DATABASE_URL` | JDBC MySQL URL | docker-compose env / values.yaml |
+| `DATABASE_USERNAME` | DB user | docker-compose / values.yaml |
+| `DATABASE_PASSWORD` | DB password | docker-compose / values.yaml |
+| `SECURITY_API_KEY` | Primary API key | docker-compose / values.yaml |
+| `SECURITY_API_KEYS` | Comma list of accepted keys | values.yaml |
+| `GROQ_API_KEY` | Groq model invocation | (Must export locally) |
+| `GROQ_MODEL` | Model id (default llama-3.3-70b-versatile) | values.yaml |
+| `PAGINATION_DEFAULT_PAGE_SIZE` | Default page size | values.yaml |
+| `PAGINATION_MAX_PAGE_SIZE` | Max allowed page size | values.yaml |
 
-### Quick Configuration
+### Rate Limiting (Nginx)
+Configured in `nginx.conf.template` using a shared zone & burst parameters:
+- Requests per minute: `RATE_LIMIT_REQUESTS_PER_MINUTE` (default 60)
+- Burst capacity: `RATE_LIMIT_BURST` (default 10)
+Adjust values in `chart/values.yaml` then rebuild/restart.
 
+## Quick Start
+### 1. Export Required Secrets (Local Only)
 ```bash
-# 1. Edit configuration
-nano chart/values.yaml
-
-# 2. Generate nginx.conf (for rate limiting changes)
-./generate-nginx-conf.sh
-
-# 3. Apply changes
-docker-compose down
-source chart/load-config.sh
-docker-compose up -d
+export GROQ_API_KEY="your_groq_key_here"   # obtain from https://console.groq.com/
+export SECURITY_API_KEY="changeme"         # or a new key
 ```
 
-See [CONFIGURATION_SETUP.md](CONFIGURATION_SETUP.md) and [chart/README.md](chart/README.md) for complete guide.
-
-### Key Configuration Options
-
-| Setting | Location in values.yaml | Default | Description |
-|---------|------------------------|---------|-------------|
-| **Rate Limit** | `rateLimit.requestsPerMinute` | `60` | Requests per minute per IP |
-| **Burst** | `rateLimit.burst` | `10` | Extra requests for spikes |
-| **API Key** | `security.apiKey` | `changeme` | Authentication key |
-| **MongoDB** | `mongodb.uri` | `mongodb://localhost:27017/...` | Database connection |
-| **CORS** | `cors.allowedOrigins` | `http://localhost:3000` | Allowed origins |
-| **Pagination** | `pagination.defaultPageSize` | `20` | Default page size |
-
-## Getting Started
-
-### 🚀 Quick Start (One Command)
-
-**The fastest way to start everything:**
-
+### 2. Launch Stack
 ```bash
-./start-all.sh
+docker-compose up -d --build
 ```
+Services:
+- Backend API: http://localhost (via Nginx proxy to app on 8082)
+- Frontend UI: http://localhost:3000
+- Adminer (DB UI): http://localhost:8081
+- Swagger: http://localhost/swagger-ui.html
+- Health: http://localhost/actuator/health & http://localhost/health
 
-This single command will:
-- ✅ Start Backend API (connects to local MongoDB)
-- ✅ Start Frontend UI
-- ✅ Configure nginx reverse proxy
+### 3. Verify Database
+Open Adminer → System: MySQL → Server: `mysql` → DB: `rag_chat_storage` → User: `ragchat` → Password: `password` (defaults—change for prod).
 
-**Prerequisites:**
-- Local MongoDB must be running: `brew services start mongodb-community`
-- Verify: `./test-mongodb-connection.sh`
-
-**To stop everything:**
+### 4. Test API
 ```bash
-./stop-all.sh
+API_KEY=changeme
+curl -H "X-API-KEY: $API_KEY" "http://localhost/api/v1/sessions?userId=demo-user"
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) and [LOCAL_MONGODB_SETUP.md](LOCAL_MONGODB_SETUP.md) for details.
+## Frontend (Groq Integration)
+Environment variables consumed by Vite (already injected in Docker build):
+- `VITE_GROQ_API_KEY` (must be set via env before build)
+- `VITE_GROQ_MODEL` (defaults to llama-3.3-70b-versatile)
+- `VITE_API_URL` (defaults http://localhost)
+- `VITE_API_KEY` (matches backend API key)
 
----
+If you see: `Groq API key not configured!` ensure you exported `GROQ_API_KEY` BEFORE running `docker-compose up`.
 
-### Prerequisites
+## API Authentication
+All protected endpoints require:
+```
+X-API-KEY: <one of SECURITY_API_KEYS>
+```
+Unprotected: Health endpoints & Swagger UI.
 
-- Java 21 or higher
-- Docker & Docker Compose
-- Node.js 18+ and npm (for frontend)
-- **MongoDB installed and running locally** on port 27017
-  - Install: `brew install mongodb-community`
-  - Start: `brew services start mongodb-community`
-  - See [LOCAL_MONGODB_SETUP.md](LOCAL_MONGODB_SETUP.md) for details
-
-### Option 1: Complete Stack with Docker (Recommended)
-
-**Note:** This setup uses your **local MongoDB instance** (not Docker MongoDB).
-
-1. **Ensure MongoDB is running locally**:
-   ```bash
-   # Check if MongoDB is running
-   lsof -i :27017
-   
-   # If not running, start it
-   brew services start mongodb-community
-   
-   # Test connection
-   ./test-mongodb-connection.sh
-   ```
-
-2. **Build the application JAR**:
-   ```bash
-   ./gradlew clean bootJar
-   ```
-
-3. **Start all services**:
-   ```bash
-   docker-compose up --build
-   ```
-
-4. **Access the services**:
-   - Application API: http://localhost (via nginx)
-   - Backend Direct: http://localhost:8082 (from host only)
-   - Frontend UI: http://localhost:3000
-   - Swagger UI: http://localhost/swagger-ui/index.html
-   - Health Check: http://localhost/actuator/health
-   - **MongoDB**: Local instance at `localhost:27017`
-   - **Mongo Compass**: Connect to `mongodb://localhost:27017/rag-chat-storage`
-
-5. **Stop the services**:
-   ```bash
-   docker-compose down
-   ```
-   
-   **Note:** This stops Docker containers only. Your local MongoDB keeps running.
-   To stop MongoDB: `brew services stop mongodb-community`
-
-### Option 2: Running Locally (without Docker)
-
-1. **Start MongoDB**:
-   ```bash
-   # Using Docker
-   docker run -d -p 27017:27017 --name mongodb mongo:7
-   
-   # Or install MongoDB locally
-   ```
-
-2. **Set environment variables**:
-   ```bash
-   export SPRING_DATA_MONGODB_URI="mongodb://localhost:27017/rag-chat-storage"
-   export SECURITY_API_KEY="my-secret-api-key"
-   export CORS_ALLOWED_ORIGINS="http://localhost:3000"
-   export RATE_LIMIT_REQUESTS_PER_MINUTE=60
-   ```
-
-3. **Run the application**:
-   ```bash
-   ./gradlew bootRun
-   ```
-
-4. **Access the application**:
-   - Application: http://localhost:8080
-   - Swagger UI: http://localhost:8080/swagger-ui/index.html
-   - Health Check: http://localhost:8080/health
-
-## API Documentation
-
-### Authentication
-
-All `/api/**` endpoints require an API key in the `X-API-KEY` header:
-
+## Sample Endpoints
+### Create Session
 ```bash
-curl -H "X-API-KEY: your-api-key-here" http://localhost:8080/api/v1/sessions?userId=user-123
+curl -X POST http://localhost/api/v1/sessions \
+  -H "X-API-KEY: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"userId":"demo-user","title":"My First Chat"}'
+```
+### Add Message
+```bash
+curl -X POST http://localhost/api/v1/sessions/<SESSION_ID>/messages \
+  -H "X-API-KEY: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"sender":"USER","content":"Hello there"}'
+```
+### List Messages (Paginated)
+```bash
+curl -H "X-API-KEY: $API_KEY" \
+  "http://localhost/api/v1/sessions/<SESSION_ID>/messages?page=0&size=20"
 ```
 
-Health check and Swagger UI endpoints do **not** require authentication.
-
-### Interactive Documentation
-
-Visit **http://localhost:8080/swagger-ui/index.html** for interactive API documentation where you can:
-- View all endpoints and their parameters
-- Test endpoints directly from the browser
-- See request/response schemas
-
-### API Endpoints
-
-#### Session Management
-
-**Create Session**
-```http
-POST /api/v1/sessions
-Content-Type: application/json
-X-API-KEY: your-api-key
-
-{
-  "userId": "user-123",
-  "title": "My Chat Session"
-}
-```
-
-**Get Sessions for User**
-```http
-GET /api/v1/sessions?userId=user-123&favorite=true
-X-API-KEY: your-api-key
-```
-
-**Rename Session**
-```http
-PATCH /api/v1/sessions/{sessionId}/rename
-Content-Type: application/json
-X-API-KEY: your-api-key
-
-{
-  "title": "New Title"
-}
-```
-
-**Mark/Unmark as Favorite**
-```http
-PATCH /api/v1/sessions/{sessionId}/favorite
-Content-Type: application/json
-X-API-KEY: your-api-key
-
-{
-  "favorite": true
-}
-```
-
-**Delete Session**
-```http
-DELETE /api/v1/sessions/{sessionId}
-X-API-KEY: your-api-key
-```
-
-#### Message Management
-
-**Add Message to Session**
-```http
-POST /api/v1/sessions/{sessionId}/messages
-Content-Type: application/json
-X-API-KEY: your-api-key
-
-{
-  "sender": "USER",
-  "content": "What is the capital of France?",
-  "context": [
-    {
-      "sourceId": "doc-123",
-      "snippet": "Paris is the capital and most populous city of France...",
-      "metadata": {
-        "score": 0.95,
-        "source": "wikipedia"
-      }
-    }
-  ]
-}
-```
-
-Valid sender types: `USER`, `ASSISTANT`, `SYSTEM`
-
-**Get Messages from Session (Paginated)**
-```http
-GET /api/v1/sessions/{sessionId}/messages?page=0&size=20
-X-API-KEY: your-api-key
-```
-
-Response includes pagination metadata:
+## Error Envelope
+Standard JSON error structure:
 ```json
 {
-  "content": [...],
-  "page": 0,
-  "size": 20,
-  "totalElements": 100,
-  "totalPages": 5,
-  "last": false
+  "timestamp": "2025-11-24T12:34:56Z",
+  "status": 422,
+  "error": "Unprocessable Entity",
+  "message": "User ID does not match session owner",
+  "path": "/api/v1/sessions/abc/messages"
 }
 ```
 
-### Health Check
+## Logging
+Controller & Service layers produce structured logs:
+- Start markers (🔵 / 🔍)
+- Success (✅) with durations (ms)
+- Errors (❌) with stack traces
+- Performance timing for each request
 
-**Simple Health Check**
-```http
-GET /health
+Adjust log levels in `application.yml` or via env:
+```
+LOG_LEVEL_APP=DEBUG
+LOG_LEVEL_ROOT=INFO
 ```
 
-**Actuator Health Check**
-```http
-GET /actuator/health
-```
+## Global Exception Handling
+Custom exceptions mapped to HTTP status codes:
+| Exception | Status |
+|-----------|--------|
+| NotFoundException | 404 |
+| BadRequestException | 400 |
+| BusinessException | 422 |
+| DuplicateResourceException | 409 |
+| RateLimitExceededException | 429 |
+| DatabaseException | 500 |
+| Generic (Exception) | 500 |
 
-## Rate Limiting
+## Database Operations & Migrations
+On startup Flyway runs pending migrations. To add a new migration:
+1. Create file `src/main/resources/db/migration/V2__description.sql`
+2. Restart container / app
 
-- Uses in-memory sliding window algorithm
-- Tracks requests per API key (or IP if key is missing)
-- Default: 60 requests per minute
-- Returns `HTTP 429 Too Many Requests` when exceeded
-
-## Error Handling
-
-All errors return a consistent JSON structure:
-
-```json
-{
-  "timestamp": "2025-11-14T10:30:00Z",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed: title must not be blank",
-  "path": "/api/v1/sessions/123/rename"
-}
-```
-
-Common status codes:
-- `400`: Bad Request (validation errors)
-- `401`: Unauthorized (invalid/missing API key)
-- `404`: Not Found (resource doesn't exist)
-- `429`: Too Many Requests (rate limit exceeded)
-- `500`: Internal Server Error
-
-## Testing
-
-### Run Unit Tests
-
+## Development (Local Without Docker)
 ```bash
-./gradlew test
-```
+# MySQL running locally (example with Docker):
+docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=password \ 
+  -e MYSQL_DATABASE=rag_chat_storage -e MYSQL_USER=ragchat -e MYSQL_PASSWORD=password \ 
+  -p 3307:3306 mysql:8.0
 
-### Test Reports
+export DATABASE_URL="jdbc:mysql://localhost:3307/rag_chat_storage?useSSL=false&allowPublicKeyRetrieval=true"
+export DATABASE_USERNAME=ragchat
+export DATABASE_PASSWORD=password
+export SECURITY_API_KEY=changeme
+export GROQ_API_KEY=your_groq_key_here
 
-After running tests, view the HTML report:
-```bash
-open build/reports/tests/test/index.html
-```
-
-### Manual Testing with curl
-
-```bash
-# Set your API key
-API_KEY="your-api-key-here"
-
-# Create a session
-SESSION_ID=$(curl -s -X POST http://localhost:8080/api/v1/sessions \
-  -H "X-API-KEY: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"userId":"test-user","title":"Test Session"}' | jq -r '.id')
-
-# Add a message
-curl -X POST http://localhost:8080/api/v1/sessions/$SESSION_ID/messages \
-  -H "X-API-KEY: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "USER",
-    "content": "Hello, how are you?",
-    "context": [
-      {
-        "sourceId": "doc-1",
-        "snippet": "Greetings are important in conversation",
-        "metadata": {"score": 0.85}
-      }
-    ]
-  }'
-
-# Get messages
-curl -X GET "http://localhost:8080/api/v1/sessions/$SESSION_ID/messages?page=0&size=10" \
-  -H "X-API-KEY: $API_KEY"
-
-# Delete session
-curl -X DELETE http://localhost:8080/api/v1/sessions/$SESSION_ID \
-  -H "X-API-KEY: $API_KEY"
-```
-
-### Test Rate Limiting
-
-Test if nginx rate limiting and burst are working correctly:
-
-**Quick Test (30 seconds):**
-```bash
-./test-rate-limit-quick.sh
-```
-
-**Expected Output:**
-```
-✓ Success (200):      12
-✗ Rate Limited (429): 68
-
-✅ Rate limiting is WORKING!
-```
-
-**Detailed Test:**
-```bash
-./test-rate-limit.sh
-```
-
-**Manual Test:**
-```bash
-# Send 80 rapid requests and count responses
-for i in {1..80}; do 
-  curl -s -o /dev/null -w "%{http_code}\n" \
-    -H "X-API-KEY: changeme" \
-    "http://localhost/api/v1/sessions?userId=test"
-done | sort | uniq -c
-
-# Expected: ~12 with 200, ~68 with 429
-```
-
-**What the numbers mean:**
-- Rate Limit: 60 requests/minute (1 req/sec)
-- Burst: 10 requests
-- Rapid fire test: Allows ~12 requests, blocks remaining ~68
-- This proves rate limiting is working correctly!
-
-See [Rate Limiting Testing Guide](ReadMe/RATE_LIMITING_TESTING_GUIDE.md) for detailed information.
-
-## Project Structure
-
-```
-src/main/java/com/example/ragchatstorage/
-├── config/               # Configuration classes
-│   ├── CorsConfig.java
-│   ├── OpenApiConfig.java
-│   └── ...
-├── controller/           # REST controllers
-│   ├── ChatSessionController.java
-│   ├── ChatMessageController.java
-│   └── HealthController.java
-├── dto/                  # Data Transfer Objects
-├── exception/            # Custom exceptions & global handler
-├── filter/               # Request filters (auth, rate limiting, logging)
-├── mapper/               # MapStruct mappers
-├── model/                # Domain models
-├── repository/           # MongoDB repositories
-└── service/              # Business logic
-```
-
-## MongoDB Collections
-
-### chat_sessions
-```json
-{
-  "_id": "session-123",
-  "userId": "user-123",
-  "title": "My Chat",
-  "favorite": false,
-  "createdAt": "2025-11-14T10:00:00Z",
-  "updatedAt": "2025-11-14T10:30:00Z"
-}
-```
-
-### chat_messages
-```json
-{
-  "_id": "message-456",
-  "sessionId": "session-123",
-  "sender": "USER",
-  "content": "What is AI?",
-  "context": [
-    {
-      "sourceId": "doc-789",
-      "snippet": "Artificial Intelligence...",
-      "metadata": {"score": 0.92}
-    }
-  ],
-  "createdAt": "2025-11-14T10:15:00Z"
-}
-```
-
-## Security Best Practices
-
-1. **Change the default API key**: Never use `changeme` in production
-2. **Use HTTPS**: Always use TLS/SSL in production
-3. **Rotate API keys**: Implement key rotation policies
-4. **MongoDB authentication**: Enable authentication in production MongoDB
-5. **Network security**: Use firewalls and VPCs
-6. **Rate limiting**: Adjust limits based on your usage patterns
-
-## Troubleshooting
-
-### Port already in use
-```bash
-# Check what's using port 8080
-lsof -i :8080
-
-# Stop the process or change the port
-export SERVER_PORT=8081
 ./gradlew bootRun
 ```
+Backend then on: http://localhost:8082 (if `SERVER_PORT=8082`).
 
-### MongoDB connection issues
+## Testing
 ```bash
-# Check if MongoDB is running
-docker ps | grep mongo
-
-# View MongoDB logs
-docker logs rag-chat-mongo
+./gradlew test            # Run unit tests
+open build/reports/tests/test/index.html  # View HTML report (macOS)
 ```
 
-### Application logs
-```bash
-# View application logs
-docker logs rag-chat-storage-app
+## Production Hardening Checklist
+- Change all default passwords & API keys
+- Use managed MySQL (Aurora / RDS / CloudSQL)
+- Enable HTTPS at the load balancer / ingress
+- Externalize secrets via vault / secret manager
+- Configure structured log shipping (ELK / Loki)
+- Tune rate limit & introduce distributed limiter (e.g. Redis) if needed
+- Add monitoring (Prometheus + Grafana dashboards) & alerting
 
-# Follow logs
-docker logs -f rag-chat-storage-app
+## Adminer Usage
+Browse DB at http://localhost:8081
+Login:
+- System: MySQL
+- Server: mysql
+- Username: ragchat
+- Password: password
+- Database: rag_chat_storage
+
+## Cleaning & Secrets
+Do NOT commit real API keys. In `chart/values.yaml` keep:
+```yaml
+frontend:
+  groq:
+    apiKey: "${GROQ_API_KEY}"  # resolved from environment at runtime
 ```
-
-## Development
-
-### Building
-
+Export locally:
 ```bash
-# Clean build
-./gradlew clean build
-
-# Build without tests
-./gradlew clean build -x test
-
-# Build JAR only
-./gradlew bootJar
+export GROQ_API_KEY="your_real_key"
 ```
-
-### Code Quality
-
-```bash
-# Run tests with coverage
-./gradlew test jacocoTestReport
-
-# Check dependencies
-./gradlew dependencies
-```
-
-## Production Considerations
-
-1. **Database**: Use MongoDB Atlas or a managed MongoDB cluster
-2. **Scaling**: Deploy multiple instances behind a load balancer
-3. **Rate Limiting**: Consider Redis-based distributed rate limiting
-4. **Monitoring**: Integrate with Prometheus/Grafana
-5. **Logging**: Use centralized logging (ELK stack, CloudWatch, etc.)
-6. **Secrets**: Use secret management tools (Vault, AWS Secrets Manager)
-7. **Backup**: Implement automated MongoDB backups
 
 ## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+1. Fork
+2. Create feature branch (`git checkout -b feature/x`)
+3. Implement + add tests
+4. Ensure `./gradlew test` passes
+5. Submit PR
 
 ## License
-
-This project is for interview/educational purposes.
+Educational / interview use only.
 
 ## Support
+- Swagger UI: http://localhost/swagger-ui.html
+- Health: http://localhost/actuator/health
+- Logs: `docker logs -f rag-chat-storage-app`
+- DB browse: http://localhost:8081
 
-For issues and questions:
-- Check the Swagger documentation at `/swagger-ui/index.html`
-- Review the logs for error details
-- Ensure all environment variables are set correctly
-
-## Message User Identification
-Each user message now carries a `userId` that must match the owning session's `userId`. The backend enforces this to prevent cross-user injection into another user's session.
+---
+**Note:** This README reflects the updated MySQL + Groq integration after cleanup (MongoDB & mock AI removed).
